@@ -1,0 +1,932 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>GPU Rail Capture Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab-notebook reading column with a sticky contents rail on wide screens; scope-screen panels for the live demos */
+:root{
+  --bg:#F3F6F7; --surface:#FFFFFF; --ink:#11181C; --muted:#56646C; --line:#D3DCE0; --line-soft:#E5EBEE;
+  --accent:#0A7480; --accent-ink:#FFFFFF; --accent-soft:#DDEFF0;
+  --good:#1D7536; --good-bg:#E2F2E6; --warn:#9A5A00; --warn-bg:#FBEFD9; --bad:#B42318; --bad-bg:#FBE4E1;
+  --ch1:#A87700; --ch2:#0A7FA0; --ch3:#A8327F; --ch4:#2C8340; --chm:#C2410C;
+  --scr-bg:#0A1013; --scr-grid:#1C272D; --scr-axis:#2F3E46; --scr-trace:#F4C542; --scr-ghost:#5E727C; --scr-text:#9DB0B9; --scr-mark:#FF6F5E;
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --s-xs:.8125rem; --s-sm:.9375rem; --s-md:1.0625rem; --s-lg:1.375rem; --s-xl:1.875rem; --s-2xl:clamp(2.1rem,5vw,3.1rem);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1417; --surface:#151D21; --ink:#E5ECEE; --muted:#9AA9B0; --line:#2B373D; --line-soft:#1F292E;
+    --accent:#45C4CE; --accent-ink:#06191C; --accent-soft:#123135;
+    --good:#5FCB7E; --good-bg:#14301D; --warn:#F0B04A; --warn-bg:#33260F; --bad:#FF8A7A; --bad-bg:#3A1714;
+    --ch1:#F2C230; --ch2:#47C6E6; --ch3:#E57CC4; --ch4:#6ACF7E; --chm:#FF8A50;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1417; --surface:#151D21; --ink:#E5ECEE; --muted:#9AA9B0; --line:#2B373D; --line-soft:#1F292E;
+  --accent:#45C4CE; --accent-ink:#06191C; --accent-soft:#123135;
+  --good:#5FCB7E; --good-bg:#14301D; --warn:#F0B04A; --warn-bg:#33260F; --bad:#FF8A7A; --bad-bg:#3A1714;
+  --ch1:#F2C230; --ch2:#47C6E6; --ch3:#E57CC4; --ch4:#6ACF7E; --chm:#FF8A50;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:var(--s-md);line-height:1.65;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.shell{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:48px}
+@media (min-width:1100px){.shell{grid-template-columns:220px minmax(0,1fr)}}
+nav.toc{display:none}
+@media (min-width:1100px){
+  nav.toc{display:block;position:sticky;top:calc(env(safe-area-inset-top,0px) + 24px);align-self:start;padding-top:56px;font-size:var(--s-xs)}
+}
+nav.toc p{font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px;counter-reset:t}
+nav.toc a{display:flex;gap:10px;color:var(--muted);text-decoration:none;padding:5px 8px;border-radius:6px;line-height:1.35}
+nav.toc a span{font-family:var(--f-mono);color:var(--accent);min-width:1.4em}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--accent-soft);color:var(--ink)}
+main{min-width:0;max-width:800px}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:var(--s-2xl);font-weight:800;letter-spacing:-.02em}
+h2{font-size:var(--s-xl);font-weight:800;letter-spacing:-.01em}
+h3{font-size:var(--s-lg);font-weight:700;margin-top:8px}
+p,ul,ol{margin:0}
+.prose{display:grid;gap:16px}
+.prose ul,.prose ol{padding-left:1.3em;display:grid;gap:8px}
+strong{font-weight:600}
+code,.mono{font-family:var(--f-mono);font-size:.88em}
+code{background:var(--line-soft);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+header.hero{padding-block:56px 40px;display:grid;gap:20px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--f-mono);font-size:var(--s-xs);text-transform:uppercase;letter-spacing:.1em;color:var(--accent)}
+.lede{font-size:1.1875rem;color:var(--muted);max-width:62ch}
+.rule-card{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:4px 10px 10px 4px;padding:18px 20px;display:grid;gap:6px}
+.rule-card .k{font-family:var(--f-mono);font-size:var(--s-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.rule-card p{font-family:var(--f-display);font-weight:700;font-size:1.25rem;line-height:1.3}
+.route{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;font-size:var(--s-sm)}
+.route div{border-top:2px solid var(--line);padding-top:10px}
+.route b{display:block;font-family:var(--f-mono);font-weight:500;font-size:var(--s-xs);color:var(--accent);letter-spacing:.04em}
+section.part{padding-block:56px 8px;display:grid;gap:22px;scroll-margin-top:16px}
+.part-head{display:grid;gap:6px}
+.part-num{font-family:var(--f-mono);font-size:var(--s-xs);color:var(--accent);letter-spacing:.08em;text-transform:uppercase}
+.part-sub{color:var(--muted)}
+.formula{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;display:grid;gap:8px}
+.formula .eq{font-family:var(--f-mono);font-size:1.05rem;font-weight:500;overflow-wrap:anywhere}
+.formula .eq em{font-style:normal;color:var(--accent)}
+.formula small{color:var(--muted);font-size:var(--s-sm)}
+.note{background:var(--accent-soft);border-radius:10px;padding:14px 18px;font-size:var(--s-sm)}
+.warnbox{background:var(--warn-bg);border-radius:10px;padding:14px 18px;font-size:var(--s-sm);color:var(--ink)}
+.warnbox b{color:var(--warn)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:var(--s-sm);font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{font-family:var(--f-mono);font-weight:500;font-size:var(--s-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:.75rem;padding:2px 8px;border-radius:999px;white-space:nowrap;font-weight:500}
+.pill.good{background:var(--good-bg);color:var(--good)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.diagram{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px}
+.diagram svg{display:block;min-width:640px;width:100%;height:auto}
+.diagram figcaption{font-size:var(--s-xs);color:var(--muted);padding:8px 4px 0}
+svg text{font-family:var(--f-body)}
+svg .t-ink{fill:var(--ink)} svg .t-muted{fill:var(--muted)} svg .t-accent{fill:var(--accent)} svg .t-mono{font-family:var(--f-mono)}
+svg .b-surface{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+svg .b-bg{fill:var(--bg);stroke:var(--line);stroke-width:1.5}
+svg .b-accent{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+svg .b-warn{fill:var(--warn-bg);stroke:var(--warn);stroke-width:1.2}
+svg .w{fill:none;stroke-width:2}
+svg .w-ch1{stroke:var(--ch1)} svg .w-ch2{stroke:var(--ch2)} svg .w-ch3{stroke:var(--ch3)} svg .w-ch4{stroke:var(--ch4)}
+svg .w-muted{stroke:var(--muted)} svg .w-accent{stroke:var(--accent)} svg .w-mark{stroke:var(--chm)}
+svg .f-ch1{fill:var(--ch1)} svg .f-ch2{fill:var(--ch2)} svg .f-ch3{fill:var(--ch3)} svg .f-ch4{fill:var(--ch4)} svg .f-muted{fill:var(--muted)} svg .f-accent{fill:var(--accent)} svg .f-mark{fill:var(--chm)}
+svg .dash{stroke-dasharray:5 4}
+svg .f-ink{fill:var(--ink)}
+/* Scope-style demo panels */
+.bench{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.bench-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.bench-head b{font-family:var(--f-display);font-size:1.05rem}
+.bench-head span{font-family:var(--f-mono);font-size:var(--s-xs);color:var(--muted)}
+.screen{background:var(--scr-bg);position:relative}
+.screen canvas{display:block;width:100%;height:280px}
+.controls{display:grid;gap:16px;padding:16px 18px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:640px){.controls{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}}
+.ctl{display:grid;gap:6px;min-width:0}
+.ctl label,.ctl .lab{font-family:var(--f-mono);font-size:var(--s-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.ctl output{font-family:var(--f-mono);font-size:var(--s-sm);color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button,.btn{font-family:var(--f-body);font-size:var(--s-sm);border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:6px 12px;border-radius:8px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn:hover,.seg button:hover{border-color:var(--accent)}
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.readout div{background:var(--surface);padding:12px 18px;display:grid;gap:2px;min-width:0}
+.readout .k{font-family:var(--f-mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.readout .v{font-family:var(--f-mono);font-size:1.05rem;font-variant-numeric:tabular-nums}
+.verdict{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:12px;align-items:flex-start;font-size:var(--s-sm)}
+.verdict .pill{font-size:.8rem;padding:3px 10px;margin-top:1px}
+.try{font-size:var(--s-sm);color:var(--muted)}
+.try ol{padding-left:1.3em;display:grid;gap:4px;margin-top:6px}
+.calc-grid{display:grid;gap:14px;padding:16px 18px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.calc-grid input,.calc-grid select{font-family:var(--f-mono);font-size:var(--s-sm);padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%}
+.inrow{display:flex;gap:6px}
+.inrow input{flex:1;min-width:0}
+.inrow select{width:auto}
+.steps{counter-reset:s;list-style:none;padding:0!important;display:grid;gap:14px!important}
+.steps>li{counter-increment:s;display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px}
+.steps>li::before{content:counter(s);font-family:var(--f-mono);font-weight:500;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:var(--s-xs);margin-top:1px}
+.steps>li>div{display:grid;gap:4px;min-width:0}
+.layers{display:grid;gap:12px}
+.layer{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:grid;gap:8px}
+.layer-top{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+.layer-top b{font-family:var(--f-display);font-size:1.1rem}
+.layer-top span{font-family:var(--f-mono);font-size:var(--s-xs);color:var(--muted)}
+.layer ul{padding-left:1.2em;display:grid;gap:4px;font-size:var(--s-sm)}
+.prompt-wrap{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.prompt-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.prompt-bar span{font-family:var(--f-mono);font-size:var(--s-xs);color:var(--muted)}
+pre.prompt{margin:0;padding:18px;font-family:var(--f-mono);font-size:.84rem;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;max-height:560px;overflow:auto;color:var(--ink)}
+.slides{display:grid;gap:10px;counter-reset:sl;list-style:none;padding:0!important}
+.slides li{counter-increment:sl;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:var(--s-sm)}
+.slides li::before{content:"Slide " counter(sl);font-family:var(--f-mono);font-size:var(--s-xs);color:var(--accent);grid-row:span 2;padding-top:2px;white-space:nowrap}
+.slides li b{font-family:var(--f-display);font-size:1rem}
+.slides li span{color:var(--muted)}
+details{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0 16px}
+details+details{margin-top:8px}
+summary{cursor:pointer;padding:12px 0;font-weight:600}
+details>div{padding:0 0 14px;font-size:var(--s-sm);display:grid;gap:8px}
+.checks{list-style:none;padding:0!important;display:grid;gap:8px!important}
+.checks li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;font-size:var(--s-sm)}
+.checks li::before{content:"";width:16px;height:16px;border:1.5px solid var(--muted);border-radius:4px;margin-top:4px}
+dl.gloss{display:grid;grid-template-columns:minmax(0,1fr);gap:0;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+dl.gloss div{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;padding:10px 16px;border-bottom:1px solid var(--line-soft)}
+@media (min-width:640px){dl.gloss div{grid-template-columns:180px minmax(0,1fr);gap:16px}}
+dl.gloss div:last-child{border-bottom:0}
+dl.gloss dt{font-family:var(--f-mono);font-size:var(--s-sm);font-weight:500}
+dl.gloss dd{margin:0;font-size:var(--s-sm);color:var(--muted)}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);font-size:var(--s-xs);color:var(--muted);display:grid;gap:6px}
+</style>
+
+<div class="shell">
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#goal"><span>1</span>What you're measuring</a></li>
+    <li><a href="#sampling"><span>2</span>Sampling rate</a></li>
+    <li><a href="#modes"><span>3</span>Acquisition modes</a></li>
+    <li><a href="#bandwidth"><span>4</span>Bandwidth</a></li>
+    <li><a href="#daq"><span>5</span>Scope vs DAQ</a></li>
+    <li><a href="#wiring"><span>6</span>How it's wired</a></li>
+    <li><a href="#plan"><span>7</span>The capture plan</a></li>
+    <li><a href="#prove"><span>8</span>Prove it works</a></li>
+    <li><a href="#audit"><span>9</span>Audit the script</a></li>
+    <li><a href="#ai-brief"><span>10</span>Brief for your AI</a></li>
+    <li><a href="#present"><span>11</span>Presenting it</a></li>
+    <li><a href="#unknowns"><span>12</span>Find out first</a></li>
+    <li><a href="#glossary"><span>&middot;</span>Glossary</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">GPU power characterization &middot; MSO64B + DAQ</div>
+  <h1>Catching every spike on every rail</h1>
+  <p class="lede">A from-zero walkthrough of the system you're building: what sampling rate and bandwidth mean, why the scope can't do it alone, how a DAQ connects, and exactly what to ask your work AI to build.</p>
+  <div class="rule-card">
+    <span class="k">The one rule the whole system serves</span>
+    <p>Every spike is either captured in detail or flagged with a timestamp. Nothing slips by silently.</p>
+  </div>
+  <div class="route">
+    <div><b>Parts 1&ndash;6</b>The ideas, one at a time, with two live demos.</div>
+    <div><b>Parts 7&ndash;9</b>The actual plan, how to prove it works, and how to check the existing script.</div>
+    <div><b>Parts 10&ndash;12</b>The brief to paste into your work AI, a presentation outline, and what to find out first.</div>
+  </div>
+</header>
+
+<!-- 1 -->
+<section class="part" id="goal">
+  <div class="part-head"><span class="part-num">Part 1</span><h2>What you're actually measuring</h2></div>
+  <div class="prose">
+    <p>A <strong>rail</strong> is one power supply line feeding the GPU. A board has several: the core rail (often under 1&nbsp;V), memory, a 1.8&nbsp;V auxiliary rail, the 12&nbsp;V input, and so on. Each rail has a <strong>voltage</strong> (how hard it pushes) and a <strong>current</strong> (how much the GPU is drawing).</p>
+    <p>Powering on is a <strong>sequence</strong>. The rails turn on in a set order. Each one reports &ldquo;power good&rdquo; (a signal called PGOOD) once it's stable. Then reset releases, firmware runs, the driver loads, and workloads start. Power-off is the same story in reverse.</p>
+    <p>A <strong>spike</strong> (also called a transient or glitch) is a brief jump or dip on a rail. Many last nanoseconds to microseconds. They matter because a dip below spec can crash or reset the GPU, an overshoot can stress parts, and they tend to happen at specific moments: a rail switching on, or the instant a workload starts pulling current.</p>
+  </div>
+  <div class="warnbox"><b>The core challenge in one sentence.</b> You want to watch for a long time (seconds for a boot, hours for workloads) <em>and</em> see events that last a few nanoseconds. No single instrument does both forever, so this system combines tools so that each covers the other's blind spot.</div>
+</section>
+
+<!-- 2 -->
+<section class="part" id="sampling">
+  <div class="part-head"><span class="part-num">Part 2</span><h2>Sampling rate, from zero</h2><p class="part-sub">The single idea everything else builds on.</p></div>
+  <div class="prose">
+    <p>A digital scope doesn't record a continuous line. It takes rapid <strong>snapshots</strong> of the voltage, called <strong>samples</strong>, and joins the dots on screen.</p>
+    <ul>
+      <li><strong>Sample rate</strong> is how many snapshots per second. Your MSO64B tops out at 25&nbsp;GS/s (25 billion per second, one every 0.04&nbsp;ns).</li>
+      <li><strong>Record length</strong> (memory) is how many snapshots fit in one capture. Your scope has 62.5&nbsp;million standard, with options for 125M, 250M, 500M or 1 billion. Check which one your unit has.</li>
+    </ul>
+    <p>Here's the trade. The memory is a fixed number of slots. If you record for longer, the scope has to space the snapshots further apart to make them fit. Think of a flipbook with a fixed number of pages: if it has to cover a whole day instead of one second, each page is a bigger jump in time.</p>
+  </div>
+  <div class="formula">
+    <div class="eq">gap between samples = <em>capture length</em> &divide; <em>record length</em></div>
+    <small>Flip it to get sample rate: record length &divide; capture length.</small>
+  </div>
+  <div class="prose">
+    <p><strong>Worked example.</strong> A 2-second boot on 62.5&nbsp;million points: 2&nbsp;s &divide; 62,500,000 = <strong>32&nbsp;ns between snapshots</strong>. A spike shorter than 32&nbsp;ns can fit entirely between two of them. At full speed (25&nbsp;GS/s), those same 62.5&nbsp;million points last only 2.5&nbsp;ms, far too short for a boot.</p>
+  </div>
+
+  <div class="bench" id="calc">
+    <div class="bench-head"><b>Gap calculator</b><span>try your own boot length</span></div>
+    <div class="calc-grid">
+      <div class="ctl"><label for="c-len">Capture length</label>
+        <div class="inrow"><input id="c-len" type="number" min="0.001" step="any" value="2"><select id="c-unit" aria-label="Unit"><option value="1e-6">&micro;s</option><option value="1e-3">ms</option><option value="1" selected>s</option></select></div>
+      </div>
+      <div class="ctl"><label for="c-mem">Record length (memory option)</label>
+        <select id="c-mem"><option value="62.5e6" selected>62.5 M points (standard)</option><option value="125e6">125 M points</option><option value="250e6">250 M points</option><option value="500e6">500 M points</option><option value="1e9">1 G points</option></select>
+      </div>
+    </div>
+    <div class="readout">
+      <div><span class="k">Sample rate</span><span class="v" id="c-rate">&ndash;</span></div>
+      <div><span class="k">Gap between samples</span><span class="v" id="c-gap">&ndash;</span></div>
+      <div><span class="k">File size per channel</span><span class="v" id="c-size">&ndash;</span></div>
+    </div>
+    <div class="verdict" id="c-note"></div>
+  </div>
+  <p class="try">The scope picks from a fixed menu of sample rates, so the real value will be rounded. Your script should read back the actual rate from the scope and save it with every capture.</p>
+</section>
+
+<!-- 3 -->
+<section class="part" id="modes">
+  <div class="part-head"><span class="part-num">Part 3</span><h2>Acquisition modes: what happens in the gaps</h2><p class="part-sub">This one setting decides whether big gaps hide spikes.</p></div>
+  <div class="prose">
+    <p>When the scope saves fewer points than it could, its fast hardware can still look at the signal between saved points. The <strong>acquisition mode</strong> decides what it keeps from each gap.</p>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Mode</th><th>What it keeps from each gap</th><th>For spike hunting</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Sample</strong> (default)</td><td>One point. Everything else in the gap is thrown away, with no warning.</td><td><span class="pill bad">Misses spikes</span></td></tr>
+      <tr><td><strong>Peak Detect</strong></td><td>The highest and lowest value seen in the gap. You lose the exact shape but keep how high it went and roughly when.</td><td><span class="pill good">Use this</span></td></tr>
+      <tr><td><strong>High Res</strong></td><td>An average-style filter of the gap. Lower noise, but a short spike gets diluted.</td><td><span class="pill bad">Hides spikes</span></td></tr>
+      <tr><td><strong>Average</strong></td><td>Averages many separate captures. A one-off spike gets averaged away.</td><td><span class="pill bad">Worst choice</span></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="bench" id="demo">
+    <div class="bench-head"><b>Spike demo</b><span>0.9 V rail &middot; one 6 ns, +90 mV spike &middot; 200 ns/div</span></div>
+    <div class="screen"><canvas id="scope" aria-label="Simulated scope screen showing a rail with one short spike and the points the scope saved"></canvas></div>
+    <div class="controls">
+      <div class="ctl">
+        <label for="gap">Gap between saved points</label>
+        <input id="gap" type="range" min="1" max="160" step="1" value="64">
+        <output id="gap-out" for="gap">32 ns</output>
+      </div>
+      <div class="ctl">
+        <span class="lab" id="mode-lab">Acquisition mode</span>
+        <div class="seg" role="group" aria-labelledby="mode-lab" id="mode">
+          <button type="button" data-v="sample" aria-pressed="true">Sample</button>
+          <button type="button" data-v="peak" aria-pressed="false">Peak Detect</button>
+          <button type="button" data-v="hires" aria-pressed="false">High Res</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="lab" id="bw-lab">Bandwidth limit (see Part 4)</span>
+        <div class="seg" role="group" aria-labelledby="bw-lab" id="bw">
+          <button type="button" data-v="0" aria-pressed="true">Full</button>
+          <button type="button" data-v="250" aria-pressed="false">250 MHz</button>
+          <button type="button" data-v="20" aria-pressed="false">20 MHz</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="lab">Repeat the boot</span>
+        <div><button type="button" class="btn primary" id="again">New capture</button></div>
+      </div>
+    </div>
+    <div class="readout">
+      <div><span class="k">Same gap on a real capture</span><span class="v" id="equiv">&ndash;</span></div>
+      <div><span class="k">Real spike</span><span class="v">+90 mV</span></div>
+      <div><span class="k">What got saved</span><span class="v" id="rec">&ndash;</span></div>
+    </div>
+    <div class="verdict"><span class="pill" id="verdict">&ndash;</span><span id="why"></span></div>
+  </div>
+  <div class="try"><b>Try this, in order:</b>
+    <ol>
+      <li>It starts at a 32&nbsp;ns gap in Sample mode, the same as a 2&nbsp;s boot on standard memory. The spike (faint grey line) is missed.</li>
+      <li>Press <b>New capture</b> a few times. Sometimes a saved point lands on the spike. That's luck, and you can't build a debug tool on luck.</li>
+      <li>Switch to <b>Peak Detect</b>. The spike is caught every time, at full height, at any gap. The trace gets thicker because noise peaks are kept too. That's expected.</li>
+      <li>Set the bandwidth to <b>20&nbsp;MHz</b>. The trace looks cleaner, but the spike now reads about half its real height. Part 4 explains why.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="part" id="bandwidth">
+  <div class="part-head"><span class="part-num">Part 4</span><h2>Bandwidth: how fast your &ldquo;eyes&rdquo; are</h2><p class="part-sub">A different problem from sample rate, and both must be good enough.</p></div>
+  <div class="prose">
+    <p><strong>Sample rate</strong> is how often you take a snapshot. <strong>Bandwidth</strong> is how fast a change the signal path can follow at all. With infinitely fast snapshots and a slow probe, you're still photographing a blurry signal.</p>
+    <p>Think of the signal path as a pipe. A narrow pipe can't pass sudden changes. A sharp spike comes out the other end shorter and wider. It doesn't vanish, it just looks smaller than it was. That's arguably worse than missing it, because you look at the result and think &ldquo;fine, only 40&nbsp;mV.&rdquo;</p>
+  </div>
+  <figure class="diagram" style="margin:0">
+    <svg viewBox="0 0 900 190" role="img" aria-label="Signal chain from rail to saved file. Each stage can blur or drop spikes; the slowest stage sets the limit.">
+      <g>
+        <rect class="b-surface" x="10" y="30" width="110" height="64" rx="8"/><text class="t-ink" x="65" y="58" text-anchor="middle" font-weight="600" font-size="14">Rail</text><text class="t-muted" x="65" y="78" text-anchor="middle" font-size="11">the real signal</text>
+        <rect class="b-warn" x="150" y="30" width="110" height="64" rx="8"/><text class="t-ink" x="205" y="58" text-anchor="middle" font-weight="600" font-size="14">Probe</text><text class="t-muted" x="205" y="78" text-anchor="middle" font-size="11">has its own BW</text>
+        <rect class="b-surface" x="290" y="30" width="110" height="64" rx="8"/><text class="t-ink" x="345" y="58" text-anchor="middle" font-weight="600" font-size="14">Scope input</text><text class="t-muted" x="345" y="78" text-anchor="middle" font-size="11">model's max BW</text>
+        <rect class="b-warn" x="430" y="30" width="110" height="64" rx="8"/><text class="t-ink" x="485" y="58" text-anchor="middle" font-weight="600" font-size="14">BW limit</text><text class="t-muted" x="485" y="78" text-anchor="middle" font-size="11">e.g. 20 MHz</text>
+        <rect class="b-surface" x="570" y="30" width="110" height="64" rx="8"/><text class="t-ink" x="625" y="58" text-anchor="middle" font-weight="600" font-size="14">ADC + mode</text><text class="t-muted" x="625" y="78" text-anchor="middle" font-size="11">Sample / Peak</text>
+        <rect class="b-warn" x="710" y="30" width="180" height="64" rx="8"/><text class="t-ink" x="800" y="58" text-anchor="middle" font-weight="600" font-size="14">Transfer + Python</text><text class="t-muted" x="800" y="78" text-anchor="middle" font-size="11">downsampling, smoothing</text>
+      </g>
+      <g class="w w-muted"><path d="M120 62h26M260 62h26M400 62h26M540 62h26M680 62h26"/></g>
+      <g class="f-muted"><path d="M146 57l8 5-8 5z M286 57l8 5-8 5z M426 57l8 5-8 5z M566 57l8 5-8 5z M706 57l8 5-8 5z"/></g>
+      <text class="t-muted" x="205" y="122" text-anchor="middle" font-size="11.5">current probes are</text>
+      <text class="t-muted" x="205" y="138" text-anchor="middle" font-size="11.5">often the slowest link</text>
+      <text class="t-muted" x="485" y="122" text-anchor="middle" font-size="11.5">removed before digitizing:</text>
+      <text class="t-muted" x="485" y="138" text-anchor="middle" font-size="11.5">can never be undone</text>
+      <text class="t-muted" x="800" y="122" text-anchor="middle" font-size="11.5">can throw away spikes</text>
+      <text class="t-muted" x="800" y="138" text-anchor="middle" font-size="11.5">the scope did catch</text>
+      <text class="t-accent" x="450" y="176" text-anchor="middle" font-size="13" font-weight="600">The slowest stage sets the limit for the whole chain. Highlighted stages are the usual culprits.</text>
+    </svg>
+  </figure>
+  <div class="formula">
+    <div class="eq">fastest edge you can see &asymp; <em>0.35</em> &divide; <em>bandwidth</em></div>
+    <small>Anything sharper than this gets rounded off and reads smaller than it really is.</small>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Bandwidth</th><th>Fastest edge it can show</th><th>A 6 ns spike reads as</th></tr></thead>
+    <tbody>
+      <tr><td>20 MHz</td><td>&asymp; 17.5 ns</td><td>about half its real height</td></tr>
+      <tr><td>100 MHz</td><td>&asymp; 3.5 ns</td><td>a little low, edges rounded</td></tr>
+      <tr><td>250 MHz</td><td>&asymp; 1.4 ns</td><td>close to true height</td></tr>
+      <tr><td>1 GHz</td><td>&asymp; 0.35 ns</td><td>true height and shape</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>About your 20 MHz setting</h3>
+  <div class="prose">
+    <p><strong>Recommendation: turn the 20&nbsp;MHz limit off while recording, and apply 20&nbsp;MHz filtering in software afterward.</strong> You can always filter later, but you can never unfilter. One full-bandwidth capture gives you both views:</p>
+    <ul>
+      <li><strong>Filtered (20&nbsp;MHz) view</strong> for clean ripple numbers. Many power-supply ripple specs are defined at 20&nbsp;MHz, so keep this for spec comparisons.</li>
+      <li><strong>Raw (full-bandwidth) view</strong> for spike hunting and worst-case peaks.</li>
+    </ul>
+    <p>Each report can then show two numbers per rail, for example &ldquo;ripple 18&nbsp;mV (20&nbsp;MHz) / worst-case peak +62&nbsp;mV (full BW).&rdquo;</p>
+  </div>
+  <div class="note"><strong>Check what &ldquo;my probe is 20&nbsp;MHz&rdquo; means.</strong> If it's the scope's bandwidth-limit setting, just change it (the script command is <code>CH&lt;x&gt;:BANdwidth</code>). If the probe itself is rated 20&nbsp;MHz, which is common for some current and differential probes, no setting will help. That probe physically can't see fast spikes. Keep it for slow, accurate measurements and use a faster probe for spike hunting. The probe's model number is printed on it; look up its datasheet.</div>
+  <div class="prose">
+    <p><strong>Dealing with the extra noise.</strong> Full bandwidth looks fuzzier, and Peak Detect makes the fuzz look thicker. To manage it without hiding anything real:</p>
+    <ul>
+      <li><strong>Fix the source.</strong> A lot of &ldquo;noise&rdquo; on rail measurements is pickup from long probe ground leads. A short ground connection or a probe designed for power rails cuts it down. A long ground lead can also create fake spikes from ringing.</li>
+      <li><strong>Zoom the vertical scale onto the rail.</strong> Use offset so a 0.9&nbsp;V rail fills the screen around 0.9&nbsp;V, not 0&ndash;12&nbsp;V. Leave headroom so big spikes don't run off the top of the screen and get clipped.</li>
+      <li><strong>Try the middle steps.</strong> The scope has bandwidth-limit options between 20&nbsp;MHz and full. A middle step can cut a lot of noise and still show real spikes.</li>
+    </ul>
+    <p><strong>The test that settles it.</strong> Capture the same event (a boot, a workload start) once at 20&nbsp;MHz and once at full bandwidth, per rail. If the peaks match, the filter wasn't hiding anything on that rail. If full bandwidth shows bigger peaks, it was. Record the result in the tool's config so the choice is deliberate.</p>
+  </div>
+
+  <h3>How the current is measured matters too</h3>
+  <div class="prose">
+    <p>GPU core rails can carry very large currents through copper planes on the board, so you often can't clip a current probe around them. Common options each have their own speed limit:</p>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Method</th><th>How it works</th><th>Speed</th></tr></thead>
+    <tbody>
+      <tr><td>Clamp current probe</td><td>Clips around a wire or cable, like the 12 V input cable</td><td>Check the probe spec; often tens to ~100 MHz</td></tr>
+      <tr><td>Shunt resistor + diff probe</td><td>Measure the tiny voltage across a known resistor in the path</td><td>Can be fast; limited by the diff probe</td></tr>
+      <tr><td>VRM current monitor (IMON)</td><td>The voltage regulator outputs a voltage proportional to current</td><td>Usually slow and filtered; good for trends, not spikes</td></tr>
+    </tbody>
+  </table></div>
+  <p class="try">Ask your hardware team which method each rail uses. That answer sets the real limit for current spikes, no matter how the scope is configured.</p>
+</section>
+
+<!-- 5 -->
+<section class="part" id="daq">
+  <div class="part-head"><span class="part-num">Part 5</span><h2>Scope vs DAQ, and why you want both</h2></div>
+  <div class="prose">
+    <p>A <strong>DAQ</strong> (data acquisition system) is a box with many input channels that records slowly but continuously, straight to disk, for as long as you like.</p>
+    <p>The easiest way to picture the two:</p>
+    <ul>
+      <li>The <strong>scope</strong> is a high-speed camera with a small memory card. It sees incredibly fast events, but only for a short clip.</li>
+      <li>The <strong>DAQ</strong> is a security camera recording all day at a low frame rate. It never stops, but blinks right past anything quick.</li>
+    </ul>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th></th><th>Scope (MSO64B)</th><th>DAQ</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Speed</strong></td><td>Very fast, catches ns events</td><td>Much slower</td></tr>
+      <tr><td><strong>How long it records</strong></td><td>Limited by memory, then gaps while it re-arms</td><td>Streams to disk for hours</td></tr>
+      <tr><td><strong>Channels</strong></td><td>4 analog here</td><td>Often dozens, cheap per channel</td></tr>
+      <tr><td><strong>Fast spikes</strong></td><td><span class="pill good">Good</span> with Peak Detect</td><td><span class="pill bad">Poor</span> many DAQs filter fast content out on purpose</td></tr>
+      <tr><td><strong>Best at</strong></td><td>The detail of fast events</td><td>The whole timeline: sequence order, slow sag, temperature, every rail</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><strong>So would a DAQ solve everything?</strong> No. It solves the &ldquo;record forever&rdquo; problem and is worse at spikes. The scope solves the spike problem and can't record forever. Together they cover each other. Specialized &ldquo;streaming digitizers&rdquo; do both but are expensive, and the bandwidth rules still apply.</div>
+</section>
+
+<!-- 6 -->
+<section class="part" id="wiring">
+  <div class="part-head"><span class="part-num">Part 6</span><h2>How it's wired</h2><p class="part-sub">The scope and DAQ do not share a probe. Each connects to the board on its own.</p></div>
+  <figure class="diagram" style="margin:0">
+    <svg viewBox="0 0 920 600" role="img" aria-label="Wiring diagram. Diff probes run from four board sense points to scope channels 1 to 4. Separate DAQ wires run from all rails and the sequencing signals to DAQ inputs. The scope's AUX OUT connects to a DAQ digital input. A test PC controls both instruments and the GPU host.">
+      <!-- Board -->
+      <rect class="b-bg" x="16" y="30" width="290" height="470" rx="12"/>
+      <text class="t-ink" x="36" y="58" font-family="Archivo,sans-serif" font-weight="700" font-size="16">GPU board</text>
+      <rect class="b-surface" x="96" y="78" width="130" height="50" rx="6"/>
+      <text class="t-ink" x="161" y="108" text-anchor="middle" font-weight="600" font-size="14">GPU</text>
+      <text class="t-muted t-mono" x="36" y="152" font-size="10.5" letter-spacing=".06em">SENSE POINTS NEAR GPU</text>
+      <g font-size="12.5">
+        <text class="t-ink" x="36" y="181">I_CORE (current sense)</text><circle class="f-ch4" cx="300" cy="177" r="5"/>
+        <text class="t-ink" x="36" y="216">VDD_CORE 0.9 V</text><circle class="f-ch1" cx="300" cy="212" r="5"/>
+        <text class="t-ink" x="36" y="251">VDD_MEM</text><circle class="f-ch2" cx="300" cy="247" r="5"/>
+        <text class="t-ink" x="36" y="286">1.8 V AUX</text><circle class="f-ch3" cx="300" cy="282" r="5"/>
+        <text class="t-ink" x="36" y="321">12 V IN + other rails</text><circle class="f-muted" cx="300" cy="317" r="5"/>
+      </g>
+      <text class="t-muted t-mono" x="36" y="358" font-size="10.5" letter-spacing=".06em">SEQUENCING SIGNALS</text>
+      <g font-size="12.5">
+        <text class="t-ink" x="36" y="386">EN / PGOOD / RESET</text><circle class="f-muted" cx="300" cy="382" r="5"/>
+        <text class="t-ink" x="36" y="446">Workload marker GPIO</text><circle class="f-mark" cx="300" cy="442" r="5"/>
+      </g>
+
+      <!-- Scope -->
+      <rect class="b-surface" x="610" y="30" width="270" height="175" rx="12"/>
+      <text class="t-ink" x="630" y="58" font-family="Archivo,sans-serif" font-weight="700" font-size="16">Oscilloscope</text>
+      <text class="t-muted" x="630" y="76" font-size="11.5">fast detail &middot; window trigger armed</text>
+      <g font-size="12" class="t-ink t-mono">
+        <text x="630" y="104">CH1</text><text x="630" y="129">CH2</text><text x="630" y="154">CH3</text><text x="630" y="179">CH4</text>
+      </g>
+      <circle class="f-ch1" cx="610" cy="100" r="5"/><circle class="f-ch2" cx="610" cy="125" r="5"/><circle class="f-ch3" cx="610" cy="150" r="5"/><circle class="f-ch4" cx="610" cy="175" r="5"/>
+      <rect class="b-accent" x="780" y="186" width="90" height="26" rx="5"/>
+      <text class="t-accent t-mono" x="825" y="203" text-anchor="middle" font-size="11" font-weight="500">AUX OUT</text>
+
+      <!-- DAQ -->
+      <rect class="b-surface" x="610" y="290" width="270" height="200" rx="12"/>
+      <rect class="b-accent" x="780" y="278" width="90" height="26" rx="5"/>
+      <text class="t-accent t-mono" x="825" y="295" text-anchor="middle" font-size="11" font-weight="500">DI marker</text>
+      <text class="t-ink" x="630" y="328" font-family="Archivo,sans-serif" font-weight="700" font-size="16">DAQ</text>
+      <text class="t-muted" x="630" y="346" font-size="11.5">slow &middot; continuous &middot; streams to disk</text>
+      <g font-size="12" class="t-ink t-mono">
+        <text x="630" y="381">AI0&ndash;AI3 rails</text><text x="630" y="421">AI4+ more rails</text><text x="630" y="451">DI0 sequencing</text><text x="630" y="476">DI1 workload</text>
+      </g>
+      <circle class="f-muted" cx="610" cy="377" r="5"/><circle class="f-muted" cx="610" cy="417" r="5"/><circle class="f-muted" cx="610" cy="447" r="5"/><circle class="f-mark" cx="610" cy="472" r="5"/>
+
+      <!-- PC -->
+      <rect class="b-surface" x="610" y="530" width="270" height="56" rx="10"/>
+      <text class="t-ink" x="630" y="554" font-weight="600" font-size="13.5">Test PC</text>
+      <text class="t-muted" x="630" y="572" font-size="11.5">controls both, runs workloads, saves data</text>
+
+      <!-- Probe wires to scope -->
+      <path class="w w-ch1" d="M305 212 C 460 212, 460 100, 605 100"/>
+      <path class="w w-ch2" d="M305 247 C 470 247, 470 125, 605 125"/>
+      <path class="w w-ch3" d="M305 282 C 480 282, 480 150, 605 150"/>
+      <path class="w w-ch4" d="M305 177 C 450 177, 450 175, 605 175"/>
+      <!-- DAQ wires -->
+      <path class="w w-muted dash" d="M305 212 C 430 260, 470 377, 605 377"/>
+      <path class="w w-muted dash" d="M305 247 C 430 290, 480 377, 605 377"/>
+      <path class="w w-muted dash" d="M305 282 C 430 320, 490 377, 605 377"/>
+      <path class="w w-muted dash" d="M305 317 C 450 340, 500 417, 605 417"/>
+      <path class="w w-muted dash" d="M305 382 C 450 382, 500 447, 605 447"/>
+      <path class="w w-mark" d="M305 442 C 450 442, 500 472, 605 472"/>
+      <!-- Marker wire -->
+      <path class="w w-accent" stroke-width="3" d="M825 212 V 278"/>
+      <!-- PC links -->
+      <path class="w w-muted dash" d="M745 530 V 490"/>
+      <path class="w w-muted dash" d="M880 558 H 904 V 118 H 880"/>
+      <path class="w w-muted dash" d="M610 566 H 160 V 500"/>
+
+      <!-- Number badges -->
+      <g font-size="12" font-weight="700" text-anchor="middle">
+        <circle class="f-ink" cx="470" cy="62" r="12"/><text x="470" y="66.5" style="fill:var(--bg)">1</text>
+        <circle class="f-ink" cx="420" cy="410" r="12"/><text x="420" y="414.5" style="fill:var(--bg)">2</text>
+        <circle class="f-ink" cx="852" cy="245" r="12"/><text x="852" y="249.5" style="fill:var(--bg)">3</text>
+        <circle class="f-ink" cx="400" cy="470" r="12"/><text x="400" y="474.5" style="fill:var(--bg)">4</text>
+        <circle class="f-ink" cx="380" cy="566" r="12"/><text x="380" y="570.5" style="fill:var(--bg)">5</text>
+      </g>
+      <text class="t-muted" x="488" y="66" font-size="11.5">diff probes (fast)</text>
+      <text class="t-muted" x="438" y="414" font-size="11.5">DAQ wires</text>
+      <text class="t-muted" x="418" y="491" font-size="11.5">marker</text>
+      <text class="t-muted" x="398" y="590" font-size="11.5">host link</text>
+    </svg>
+    <figcaption>Colored lines are scope probes. Dashed grey lines are the DAQ's own wires to the same points. The thick teal link is the only connection between the two instruments.</figcaption>
+  </figure>
+  <ol class="steps prose">
+    <li><div><strong>Scope probes.</strong> Differential probes on the 3&ndash;4 rails you care most about, plus one current measurement. Connect at the rail's sense points near the GPU, not at the power connector, because big currents cause voltage drops along the board's copper.</div></li>
+    <li><div><strong>DAQ wires.</strong> The DAQ gets its own wires to every rail, and to the sequencing signals (enables, power-good, reset). Two instruments on the same point is fine: both only listen, and barely draw any current.</div></li>
+    <li><div><strong>The marker wire.</strong> When the scope triggers, it sends a pulse out of the AUX OUT connector on its back panel (you set what that output does in the scope's settings). The pulse goes into a spare DAQ input. Every scope capture becomes a mark on the DAQ timeline, so you can say &ldquo;spike at 14:32:07, during workload X&rdquo; without trusting two clocks to agree.</div></li>
+    <li><div><strong>The workload marker.</strong> When the test software starts or stops a workload, it toggles a spare GPIO into the DAQ (or at least writes a timestamp). Now every event is tagged with what the GPU was doing.</div></li>
+    <li><div><strong>The test PC.</strong> Talks to both instruments over USB or Ethernet, runs the workloads on the GPU's host, saves all files, and runs the analysis.</div></li>
+  </ol>
+  <h3>Gotchas</h3>
+  <div class="prose"><ul>
+    <li><strong>The marker pulse can be too short for the DAQ.</strong> This is the sampling lesson again: a 1&nbsp;&micro;s pulse into a DAQ sampling every 10&nbsp;&micro;s can be missed. Use a DAQ digital input that detects edges (many timestamp edges of any length), or stretch the pulse with a small circuit.</li>
+    <li><strong>Ground loops.</strong> Scope, DAQ, board and PC all connected together can create extra ground paths that add hum and noise. Use one common ground point, and prefer a DAQ with isolated inputs.</li>
+  </ul></div>
+</section>
+
+<!-- 7 -->
+<section class="part" id="plan">
+  <div class="part-head"><span class="part-num">Part 7</span><h2>The capture plan</h2><p class="part-sub">The whole system, mapped onto the GPU's lifecycle.</p></div>
+  <figure class="diagram" style="margin:0">
+    <svg viewBox="0 0 900 330" role="img" aria-label="Timeline of the GPU lifecycle with four capture layers. The DAQ runs the whole time. Scope overview capture covers the boot. Scope event captures fire on any out-of-tolerance excursion throughout. Scope zoom-in captures target one chosen moment on later boots.">
+      <g font-size="11" text-anchor="middle" class="t-ink">
+        <rect class="b-surface" x="180" y="20" width="70" height="44" rx="6"/><text x="215" y="38">Power</text><text x="215" y="53">on</text>
+        <rect class="b-surface" x="254" y="20" width="96" height="44" rx="6"/><text x="302" y="38">Rails ramp</text><text x="302" y="53">in order</text>
+        <rect class="b-surface" x="354" y="20" width="86" height="44" rx="6"/><text x="397" y="38">PGOOD +</text><text x="397" y="53">reset release</text>
+        <rect class="b-surface" x="444" y="20" width="76" height="44" rx="6"/><text x="482" y="38">Firmware</text><text x="482" y="53">+ driver</text>
+        <rect class="b-surface" x="524" y="20" width="56" height="44" rx="6"/><text x="552" y="46">Idle</text>
+        <rect class="b-surface" x="584" y="20" width="220" height="44" rx="6"/><text x="694" y="38">Workloads</text><text x="694" y="53">minutes to hours</text>
+        <rect class="b-surface" x="808" y="20" width="84" height="44" rx="6"/><text x="850" y="38">Shutdown</text><text x="850" y="53">+ off</text>
+      </g>
+      <g font-size="12.5" font-weight="600" class="t-ink">
+        <text x="8" y="106">DAQ timeline</text>
+        <text x="8" y="166">Scope: overview</text>
+        <text x="8" y="226">Scope: event trigger</text>
+        <text x="8" y="286">Scope: zoom-in</text>
+      </g>
+      <g font-size="10.5" class="t-muted">
+        <text x="8" y="121">always on</text>
+        <text x="8" y="181">once per boot</text>
+        <text x="8" y="241">during long runs</text>
+        <text x="8" y="301">on repeat boots</text>
+      </g>
+      <line x1="170" y1="80" x2="892" y2="80" class="w w-muted" stroke-width="1" opacity=".35"/>
+      <!-- DAQ -->
+      <rect x="180" y="96" width="712" height="16" rx="8" class="f-muted" opacity=".55"/>
+      <g class="f-mark"><rect x="290" y="92" width="3" height="24"/><rect x="625" y="92" width="3" height="24"/><rect x="712" y="92" width="3" height="24"/><rect x="760" y="92" width="3" height="24"/><rect x="838" y="92" width="3" height="24"/></g>
+      <!-- Overview -->
+      <rect x="180" y="156" width="400" height="16" rx="8" class="f-ch1"/>
+      <text class="t-muted" x="590" y="169" font-size="11">Peak Detect, max memory, full BW</text>
+      <!-- Event -->
+      <line x1="584" y1="224" x2="892" y2="224" class="w w-muted dash" stroke-width="1.5"/>
+      <g class="f-ch2"><rect x="622" y="210" width="9" height="28" rx="2"/><rect x="709" y="210" width="9" height="28" rx="2"/><rect x="757" y="210" width="9" height="28" rx="2"/><rect x="835" y="210" width="9" height="28" rx="2"/></g>
+      <text class="t-muted" x="400" y="229" font-size="11" text-anchor="middle">window trigger + FastFrame: a snapshot per violation</text>
+      <!-- Zoom -->
+      <rect x="282" y="272" width="22" height="20" rx="4" class="f-ch3"/>
+      <path d="M293 262 V 250" class="w w-ch3" stroke-width="1.5"/>
+      <text class="t-muted" x="314" y="287" font-size="11">full-speed detail at one chosen moment</text>
+      <!-- marker legend -->
+      <rect x="180" y="314" width="3" height="12" class="f-mark"/><text class="t-muted" x="190" y="324" font-size="11">marks on the DAQ timeline = scope trigger pulses (the marker wire)</text>
+    </svg>
+  </figure>
+  <div class="warnbox"><b>One scope, one setup at a time.</b> The scope can't run the overview capture and the event trigger simultaneously. The tool switches between them: overview during the boot, event mode for idle, workloads and shutdown, and zoom-ins on repeat boots once you know where to look.</div>
+  <div class="layers">
+    <div class="layer">
+      <div class="layer-top"><b>DAQ timeline</b><span>always on, every rail, hours</span></div>
+      <ul>
+        <li>Records every rail, the sequencing signals, the workload marker and the scope marker, continuously.</li>
+        <li>Answers: did the rails come up in the right order? Did a rail sag slowly under load? When did each scope capture happen, and during what?</li>
+      </ul>
+    </div>
+    <div class="layer">
+      <div class="layer-top"><b>Scope overview capture</b><span>once per boot</span></div>
+      <ul>
+        <li>One long capture covering the whole boot window. <strong>Peak Detect</strong>, maximum record length, full bandwidth (or the per-rail value you tested), 16-bit transfer, and the full record pulled off the scope.</li>
+        <li>Answers: every excursion's height and roughly when it happened during boot. Loses exact shape.</li>
+      </ul>
+    </div>
+    <div class="layer">
+      <div class="layer-top"><b>Scope event capture</b><span>idle, workloads, shutdown</span></div>
+      <ul>
+        <li>A <strong>window trigger</strong> on each rail's tolerance (for example &plusmn;5%): the scope fires whenever the rail leaves that band.</li>
+        <li><strong>FastFrame</strong> stores many short full-speed snapshots back to back, each with its own timestamp, with very short re-arm time between them.</li>
+        <li>Every trigger also pulses the marker wire, so each event appears on the DAQ timeline.</li>
+      </ul>
+    </div>
+    <div class="layer">
+      <div class="layer-top"><b>Scope zoom-in capture</b><span>repeat boots</span></div>
+      <ul>
+        <li>When the overview shows something odd at, say, 340&nbsp;ms into boot, trigger on a sequencing signal (PWR_EN, PGOOD, a GPIO) with a horizontal delay, and capture just that region at full speed.</li>
+        <li>Answers: the exact shape of the spike, which tells you what caused it.</li>
+      </ul>
+    </div>
+  </div>
+  <h3>What this still can't do (say this out loud in the presentation)</h3>
+  <div class="prose"><ul>
+    <li><strong>Faster than the probe.</strong> Nothing past the probe's bandwidth reaches the scope, whatever the settings.</li>
+    <li><strong>Gap-free full speed for hours.</strong> A scope isn't a streaming recorder. In long runs, the scope only keeps full-speed detail of excursions that break the tolerance window. Anything that stays inside tolerance isn't captured at full speed, which is by design: it didn't violate spec. The DAQ still sees the slow picture.</li>
+    <li><strong>Blind time while transferring.</strong> While the scope is sending a large capture to the PC, it isn't watching. The tool should log those periods so they're known, not hidden.</li>
+    <li><strong>File sizes.</strong> At 2 bytes per point, a 62.5&nbsp;M capture is 125&nbsp;MB per channel; a 1&nbsp;G capture is 2&nbsp;GB per channel. Transfers take real time and storage adds up.</li>
+  </ul></div>
+</section>
+
+<!-- 8 -->
+<section class="part" id="prove">
+  <div class="part-head"><span class="part-num">Part 8</span><h2>Prove it works with a fake spike</h2><p class="part-sub">Reading code isn't proof. Feeding in a known spike is.</p></div>
+  <ol class="steps prose">
+    <li><div><strong>Make a known spike.</strong> A narrow pulse (20&ndash;50&nbsp;ns) on top of a DC level, from a pulse generator, or from the scope's built-in function generator if your unit has that option.</div></li>
+    <li><div><strong>Feed it into the scope</strong> through the same kind of probe and channel settings you use on the board.</div></li>
+    <li><div><strong>Run the full automation</strong> at the real boot-length timebase, exactly as it will run on the board.</div></li>
+    <li><div><strong>Check the saved file</strong>, not the screen. The spike should appear at the right time and close to its real height.</div></li>
+    <li><div><strong>If it's missing or short</strong>, something in the chain is losing events. Use Part 9 to find which stage. Repeat until it passes, then rerun this test whenever the script changes.</div></li>
+  </ol>
+</section>
+
+<!-- 9 -->
+<section class="part" id="audit">
+  <div class="part-head"><span class="part-num">Part 9</span><h2>Audit the existing script</h2><p class="part-sub">You don't know what your AI built yet. These are the lines to look for.</p></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>What to check</th><th>Should be</th><th>Red flag</th></tr></thead>
+    <tbody>
+      <tr><td><code>ACQuire:MODe</code></td><td>Peak Detect for long captures</td><td>Sample, High Res or Average</td></tr>
+      <tr><td><code>HORizontal:RECOrdlength</code>, sample rate</td><td>Max record length; real rate read back and logged with each capture</td><td>Rate never checked or saved</td></tr>
+      <tr><td><code>CH&lt;x&gt;:BANdwidth</code></td><td>Full, or a per-rail value chosen by the test in Part 4</td><td>20 MHz with no reason given</td></tr>
+      <tr><td><code>DATa:STARt</code> / <code>DATa:STOP</code></td><td>Covers the whole record</td><td>Only the first N points</td></tr>
+      <tr><td><code>WFMOutpre:BYT_Nr</code></td><td>2 bytes (16-bit)</td><td>1 byte: 12-bit data cut to 8 bits</td></tr>
+      <tr><td>Peak Detect data parsing</td><td>Handles min/max data correctly</td><td>Treats it as one plain stream, so values and time axis come out wrong</td></tr>
+      <tr><td>Python processing before save</td><td>Raw data saved untouched; filtered views made separately</td><td><code>[::N]</code>, <code>decimate</code>, <code>resample</code>, <code>rolling</code>, <code>savgol</code>, plot downsampling</td></tr>
+      <tr><td>Vertical scale / offset</td><td>Rail fills the screen with headroom; clipping flagged</td><td>Tight zoom with no clip check, so big spikes get cut off</td></tr>
+      <tr><td>Triggers</td><td>Window trigger on rail tolerance, FastFrame for long runs</td><td>No trigger, or a simple edge trigger only</td></tr>
+    </tbody>
+  </table></div>
+  <p class="try">Command names follow Tektronix's programming style. Have your AI confirm each exact command against the MSO64B programmer manual rather than trusting memory.</p>
+</section>
+
+<!-- 10 -->
+<section class="part" id="ai-brief">
+  <div class="part-head"><span class="part-num">Part 10</span><h2>What to tell your work AI</h2><p class="part-sub">Fill in the [brackets], then paste it. It asks for an audit first so nothing changes before you understand the current script.</p></div>
+  <div class="prompt-wrap">
+    <div class="prompt-bar"><span>brief for your work AI</span><button type="button" class="btn primary" id="copy">Copy brief</button></div>
+<pre class="prompt" id="brief">CONTEXT
+I'm building an automated tool to characterize our GPU's power rails end to end: power-on, the full boot sequence, idle, workloads, and power-off. Instruments: a Tektronix MSO64B oscilloscope (record length option: [62.5M / 125M / 250M / 500M / 1G]) and [DAQ model, or "a DAQ we still need to choose"]. Probes: [probe models and their rated bandwidths]. Rails: [rail name, nominal voltage, tolerance, how current is measured, for each rail]. Typical boot duration: [X seconds].
+
+THE #1 REQUIREMENT
+We must never silently miss a voltage or current spike. Every excursion must be either captured in detail or flagged with a timestamp. If the tool cannot see something (probe bandwidth, transfer dead time), it must say so in its logs rather than hide it.
+
+STEP 1: AUDIT THE EXISTING SCRIPT. DO NOT CHANGE ANYTHING YET.
+For each item below, quote the relevant line(s), say what it currently does, and mark it OK or PROBLEM:
+1. Acquisition mode (ACQuire:MODe). Long captures must use Peak Detect. Sample, High Res or Average are wrong for spike hunting.
+2. Record length and the actual sample rate. Are both read back from the scope and saved with each capture?
+3. Channel bandwidth limit (CH<x>:BANdwidth). Is a 20 MHz limit applied during capture?
+4. Data range (DATa:STARt / DATa:STOP). Does it transfer the full record?
+5. Transfer width (WFMOutpre:BYT_Nr). Should be 2 bytes.
+6. Peak Detect data. How does the scope format min/max data, and does the parser handle it and the time axis correctly?
+7. Any downsampling or smoothing in Python before raw data is saved ([::N], decimate, resample, rolling, savgol, plot-library downsampling).
+8. Vertical scale/offset per channel. Can a large spike clip off-screen? Is clipping/overrange detected?
+9. Triggers. Is there a window trigger on rail tolerance? Is FastFrame used?
+Finish with a plain-English summary I can understand: would the current script catch a 20 ns spike during a full boot capture? Yes or no, and why.
+
+STEP 2: TARGET DESIGN (after I approve the audit)
+A. DAQ timeline: continuous recording of every rail, the sequencing signals (enables, PGOOD, reset), a workload-phase marker, and the scope's trigger marker.
+B. Scope overview capture, once per boot: Peak Detect, maximum record length, full bandwidth (or a per-rail value from config), 2-byte transfer, full record saved raw.
+C. Scope event capture during idle, workloads and shutdown: window trigger per rail at its tolerance, FastFrame with per-frame timestamps.
+D. Scope zoom-in capture on repeat boots: trigger on a sequencing signal (e.g. PGOOD) with a horizontal delay to a chosen moment, full sample rate, short window.
+E. Time alignment: scope AUX OUT configured to output a pulse on trigger, wired to a DAQ digital input that detects edges. Test software toggles a GPIO into the DAQ (or logs timestamps) at each workload start/stop.
+F. Save with every capture: all instrument settings read back from the scope (mode, record length, actual sample rate, bandwidth, vertical scale/offset, trigger setup), timestamps, boot phase/workload, and any periods when the scope was not acquiring.
+G. Never modify raw data. Make 20 MHz-filtered views in software as a separate output.
+H. Reports per rail: ripple (20 MHz filtered), worst-case peak and dip (full bandwidth), timestamp and boot phase/workload for each excursion, and a clip warning if the signal hit the screen edge.
+I. Validation: a test mode that runs the full pipeline on an injected known pulse (20-50 ns) and checks the pulse appears in the saved data at the right height and time.
+
+RULES
+- Verify every SCPI command against the MSO64B programmer manual. Tell me when you are unsure of exact syntax instead of guessing.
+- Read settings back from the scope after setting them; flag any mismatch with the config.
+- Explain each design choice in plain English. I need to present this system to my team.</pre>
+  </div>
+</section>
+
+<!-- 11 -->
+<section class="part" id="present">
+  <div class="part-head"><span class="part-num">Part 11</span><h2>Presenting it</h2><p class="part-sub">A talk track that follows the same order you just learned it in.</p></div>
+  <ol class="slides">
+    <li><b>The goal</b><span>See every rail through the GPU's whole life, from power-on to power-off. Never miss a spike.</span></li>
+    <li><b>The problem</b><span>Scope memory is fixed. A 2 s boot on 62.5 M points means a 32 ns gap between samples. A shorter spike can vanish.</span></li>
+    <li><b>Fix 1: Peak Detect</b><span>Keep the highest and lowest value in every gap. Spikes survive at any zoom. Show the demo.</span></li>
+    <li><b>Fix 2: bandwidth</b><span>20 MHz makes rails look clean but shrinks spikes. Record full bandwidth, filter in software. Two numbers per rail.</span></li>
+    <li><b>Scope + DAQ</b><span>High-speed camera plus security camera. Show the wiring diagram and the single marker wire.</span></li>
+    <li><b>The capture plan</b><span>DAQ always on; scope overview, event trigger and zoom-in. Show the timeline.</span></li>
+    <li><b>Proof</b><span>Injected-spike test: the known pulse shows up in the saved data at the right height.</span></li>
+    <li><b>Limits and next steps</b><span>Probe bandwidth, transfer blind time, file sizes. What you still need (Part 12).</span></li>
+  </ol>
+  <h3>Questions you'll probably get</h3>
+  <div>
+    <details><summary>Why not just turn the sample rate all the way up?</summary><div><p>Because memory is fixed. At 25 GS/s the standard memory fills in 2.5 ms, and a boot takes far longer. Peak Detect is how you get long captures without losing spikes.</p></div></details>
+    <details><summary>Why not just use a DAQ?</summary><div><p>DAQs record forever but are slow, and many filter fast content out on purpose. They'd miss the very spikes we're hunting. The scope covers speed, the DAQ covers time.</p></div></details>
+    <details><summary>Doesn't full bandwidth make everything noisy?</summary><div><p>It looks fuzzier, yes. We fix noise at the source (short probe grounds), filter in software for ripple numbers, and keep the raw data for peaks. We also tested each rail at 20 MHz vs full to see whether the filter was hiding anything.</p></div></details>
+    <details><summary>What can this system still miss?</summary><div><p>Anything faster than the probe can see; excursions during workloads that stay inside tolerance (not recorded at full speed, by design); and anything during the short periods when the scope is transferring data, which the tool logs.</p></div></details>
+    <details><summary>How do we know it actually works?</summary><div><p>We inject a known narrow pulse and run the whole pipeline. If the pulse appears in the saved file at the right height and time, the chain works. We rerun this whenever the script changes.</p></div></details>
+  </div>
+</section>
+
+<!-- 12 -->
+<section class="part" id="unknowns">
+  <div class="part-head"><span class="part-num">Part 12</span><h2>Find these out first</h2><p class="part-sub">Each one fills a bracket in the brief.</p></div>
+  <ul class="checks prose">
+    <li><span><strong>Which memory option is installed</strong> on your scope (62.5M standard, or 125M up to 1G). It's shown in the scope's installed-options screen.</span></li>
+    <li><span><strong>Every probe's model number and rated bandwidth</strong>, especially current and differential probes.</span></li>
+    <li><span><strong>Whether &ldquo;20 MHz&rdquo; is the scope setting or the probe's rating.</strong></span></li>
+    <li><span><strong>The list of rails</strong>, each one's nominal voltage, tolerance, and where its sense point is.</span></li>
+    <li><span><strong>How current is measured</strong> on each rail (clamp, shunt, or VRM monitor). Ask the hardware team.</span></li>
+    <li><span><strong>How long a boot takes</strong>, roughly, from power applied to driver loaded.</span></li>
+    <li><span><strong>Whether you have a DAQ</strong>, which model, how many channels, and whether it has edge-detecting digital inputs and isolated channels.</span></li>
+    <li><span><strong>A way to make a test pulse</strong>: a pulse generator, or the scope's function generator option.</span></li>
+  </ul>
+</section>
+
+<!-- Glossary -->
+<section class="part" id="glossary">
+  <div class="part-head"><span class="part-num">Reference</span><h2>Glossary</h2></div>
+  <dl class="gloss">
+    <div><dt>Rail</dt><dd>One power supply line feeding the GPU, like the 0.9 V core rail.</dd></div>
+    <div><dt>Spike / transient</dt><dd>A brief jump or dip on a rail, often nanoseconds to microseconds long.</dd></div>
+    <div><dt>Sample</dt><dd>One snapshot of the voltage at one instant.</dd></div>
+    <div><dt>Sample rate</dt><dd>Snapshots per second. GS/s = billions per second, MS/s = millions.</dd></div>
+    <div><dt>Record length</dt><dd>How many samples fit in one capture. The scope's memory.</dd></div>
+    <div><dt>Acquisition mode</dt><dd>What the scope keeps from each gap between saved points: Sample, Peak Detect, High Res, Average.</dd></div>
+    <div><dt>Peak Detect</dt><dd>Keeps the highest and lowest value in every gap, so short spikes survive long captures.</dd></div>
+    <div><dt>Bandwidth</dt><dd>How fast a change the signal path can follow. Measured in MHz or GHz.</dd></div>
+    <div><dt>Bandwidth limit</dt><dd>A filter in the scope (like 20 MHz) that removes fast content before it's recorded.</dd></div>
+    <div><dt>ADC</dt><dd>The part of the scope that turns voltage into numbers. The MSO64B's is 12-bit.</dd></div>
+    <div><dt>Differential probe</dt><dd>Measures the voltage between two points, neither of which needs to be ground.</dd></div>
+    <div><dt>Sense point</dt><dd>The spot on the board where a rail's voltage is meant to be measured, close to the GPU.</dd></div>
+    <div><dt>DAQ</dt><dd>Data acquisition system. Many slow channels that record continuously to disk.</dd></div>
+    <div><dt>Trigger</dt><dd>The condition that tells the scope when to capture.</dd></div>
+    <div><dt>Window trigger</dt><dd>Fires when a signal leaves a band, like &plusmn;5% around the rail's nominal voltage.</dd></div>
+    <div><dt>FastFrame</dt><dd>Tektronix feature that stores many short triggered captures back to back, each with a timestamp.</dd></div>
+    <div><dt>AUX OUT</dt><dd>Back-panel scope output that can send a pulse every time it triggers.</dd></div>
+    <div><dt>PGOOD / EN / RESET</dt><dd>Board signals for &ldquo;rail is stable,&rdquo; &ldquo;turn this rail on,&rdquo; and &ldquo;hold the chip in reset.&rdquo;</dd></div>
+    <div><dt>SCPI</dt><dd>The text command language scripts use to control the scope, like <code>ACQuire:MODe PEAKdetect</code>.</dd></div>
+    <div><dt>Ground loop</dt><dd>Extra ground paths between connected equipment that add hum and noise.</dd></div>
+  </dl>
+</section>
+
+<footer>
+  <p>MSO64B figures (25 GS/s maximum, 62.5 M points standard, options to 1 G points, 12-bit ADC) come from Tektronix's published specifications. Confirm them against your own unit's installed options and the MSO64B programmer manual.</p>
+  <p>The spike demo is a simplified simulation: a 0.9 V rail with noise, one 6 ns spike, and a single-pole filter standing in for the bandwidth limit.</p>
+</footer>
+</main>
+</div>
+
+<script>
+(function(){
+  /* ---------- Gap calculator ---------- */
+  var cLen=document.getElementById('c-len'), cUnit=document.getElementById('c-unit'), cMem=document.getElementById('c-mem');
+  function fmtTime(s){
+    if(s>=1) return s.toPrecision(3).replace(/\.?0+$/,'')+' s';
+    if(s>=1e-3) return (s*1e3).toPrecision(3).replace(/\.?0+$/,'')+' ms';
+    if(s>=1e-6) return (s*1e6).toPrecision(3).replace(/\.?0+$/,'')+' µs';
+    return (s*1e9).toPrecision(3).replace(/\.?0+$/,'')+' ns';
+  }
+  function fmtRate(r){
+    if(r>=1e9) return (r/1e9).toPrecision(3).replace(/\.?0+$/,'')+' GS/s';
+    if(r>=1e6) return (r/1e6).toPrecision(3).replace(/\.?0+$/,'')+' MS/s';
+    if(r>=1e3) return (r/1e3).toPrecision(3).replace(/\.?0+$/,'')+' kS/s';
+    return r.toPrecision(3)+' S/s';
+  }
+  function fmtBytes(b){
+    if(b>=1e9) return (b/1e9).toPrecision(3).replace(/\.?0+$/,'')+' GB';
+    return (b/1e6).toPrecision(3).replace(/\.?0+$/,'')+' MB';
+  }
+  function calc(){
+    var len=parseFloat(cLen.value)*parseFloat(cUnit.value), mem=parseFloat(cMem.value);
+    var note=document.getElementById('c-note');
+    if(!(len>0)){ note.textContent='Enter a capture length above zero.'; return; }
+    var rate=mem/len, capped=false, pts=mem;
+    if(rate>25e9){ rate=25e9; capped=true; pts=Math.round(len*rate); }
+    var gap=1/rate;
+    document.getElementById('c-rate').textContent=fmtRate(rate);
+    document.getElementById('c-gap').textContent=fmtTime(gap);
+    document.getElementById('c-size').textContent=fmtBytes(pts*2);
+    var msg;
+    if(capped){ msg='Short enough to run at the full 25 GS/s. Every spike the probe can deliver gets real samples.'; }
+    else { msg='In Sample mode, any spike shorter than about '+fmtTime(gap)+' can fall between two saved points and disappear. Peak Detect keeps it.'; }
+    note.innerHTML='';
+    var p=document.createElement('span'); p.className='pill '+(capped?'good':(gap>2e-9?'bad':'warn')); p.textContent=capped?'Full speed':(gap>2e-9?'Use Peak Detect':'Close to full speed');
+    var t=document.createElement('span'); t.textContent=msg;
+    note.appendChild(p); note.appendChild(t);
+  }
+  [cLen,cUnit,cMem].forEach(function(el){ el.addEventListener('input',calc); el.addEventListener('change',calc); });
+  calc();
+
+  /* ---------- Spike demo ---------- */
+  var N=4000, DT=0.5, BASE=900, SPK=90, S0=2260, SW=12;
+  var seed=11; function rnd(){ seed=(seed*1664525+1013904223)>>>0; return seed/4294967296; }
+  function gauss(){ var u=0; while(!u) u=rnd(); var v=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+  var truth=new Float64Array(N), noisy=new Float64Array(N);
+  for(var i=0;i<N;i++){
+    var s=BASE+3*Math.sin(2*Math.PI*i/2000);
+    truth[i]=s+((i>=S0&&i<S0+SW)?SPK:0);
+    noisy[i]=truth[i]+2*gauss();
+  }
+  function lowpass(fHz){
+    if(!fHz) return noisy;
+    var tau=1e9/(2*Math.PI*fHz), a=DT/(tau+DT), out=new Float64Array(N), y=BASE;
+    for(var k=0;k<N;k++){ y+=a*(noisy[k]-y); out[k]=y; }
+    return out;
+  }
+  var sigs={'0':noisy,'250':lowpass(250e6),'20':lowpass(20e6)};
+  var state={gap:64,mode:'sample',bw:'0',phaseFrac:0};
+  var cv=document.getElementById('scope'), ctx=cv.getContext('2d');
+  function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+  function acquire(){
+    var g=state.gap, sig=sigs[state.bw], ph=Math.min(g-1,Math.floor(state.phaseFrac*g)), out=[];
+    if(state.mode==='sample'||g===1){
+      for(var k=ph;k<N;k+=g) out.push({i:k,v:sig[k]});
+    } else {
+      var start=0;
+      if(ph>0) out.push(bucket(sig,0,ph));
+      for(var s=ph;s<N;s+=g) out.push(bucket(sig,s,Math.min(s+g,N)));
+    }
+    return out;
+  }
+  function bucket(sig,s,e){
+    var lo=Infinity,hi=-Infinity,sum=0;
+    for(var k=s;k<e;k++){ var v=sig[k]; if(v<lo)lo=v; if(v>hi)hi=v; sum+=v; }
+    return {s:s,e:e,lo:lo,hi:hi,mean:sum/(e-s)};
+  }
+
+  function draw(){
+    var dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight;
+    if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); }
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var padL=48,padR=12,padT=26,padB=24, w=W-padL-padR, h=H-padT-padB;
+    var yMin=875, yMax=1005;
+    function X(i){ return padL+(i/N)*w; }
+    function Y(v){ return padT+(1-(v-yMin)/(yMax-yMin))*h; }
+    ctx.fillStyle=css('--scr-bg'); ctx.fillRect(0,0,W,H);
+    // graticule
+    ctx.strokeStyle=css('--scr-grid'); ctx.lineWidth=1;
+    for(var gx=0;gx<=10;gx++){ var x=padL+gx*w/10; ctx.beginPath(); ctx.moveTo(x+.5,padT); ctx.lineTo(x+.5,padT+h); ctx.stroke(); }
+    [900,925,950,975,1000].forEach(function(v){ var y=Math.round(Y(v))+.5; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+w,y); ctx.stroke(); });
+    ctx.strokeStyle=css('--scr-axis'); ctx.strokeRect(padL+.5,padT+.5,w,h);
+    ctx.fillStyle=css('--scr-text'); ctx.font='11px "IBM Plex Mono", monospace'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    [900,950,1000].forEach(function(v){ ctx.fillText(v+' mV',padL-6,Y(v)); });
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    ctx.fillText('0 ns',padL,H-7); ctx.textAlign='right'; ctx.fillText('2000 ns',padL+w,H-7);
+    // spike marker
+    var sx=X(S0+SW/2);
+    ctx.fillStyle=css('--scr-mark'); ctx.beginPath(); ctx.moveTo(sx-5,7); ctx.lineTo(sx+5,7); ctx.lineTo(sx,15); ctx.closePath(); ctx.fill();
+    ctx.textAlign='left'; ctx.fillText('spike',sx+9,16);
+    // ghost truth
+    ctx.strokeStyle=css('--scr-ghost'); ctx.lineWidth=1; ctx.beginPath();
+    for(var k=0;k<N;k+=1){ var px=X(k), py=Y(truth[k]); if(k===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); }
+    ctx.stroke();
+    // acquired
+    var pts=acquire(), tr=css('--scr-trace'), rec=-Infinity;
+    ctx.strokeStyle=tr; ctx.fillStyle=tr; ctx.lineWidth=1.6;
+    if(state.mode==='sample'||state.gap===1){
+      ctx.beginPath(); pts.forEach(function(p,j){ var px=X(p.i),py=Y(p.v); if(j===0)ctx.moveTo(px,py); else ctx.lineTo(px,py); if(p.v>rec)rec=p.v; }); ctx.stroke();
+      if(state.gap>=8){ pts.forEach(function(p){ ctx.beginPath(); ctx.arc(X(p.i),Y(p.v),2.4,0,Math.PI*2); ctx.fill(); }); }
+    } else if(state.mode==='peak'){
+      ctx.globalAlpha=.85;
+      pts.forEach(function(b){ var x0=X(b.s), x1=X(b.e), y0=Y(b.hi), y1=Y(b.lo); ctx.fillRect(x0,y0,Math.max(1.2,x1-x0),Math.max(1.4,y1-y0)); if(b.hi>rec)rec=b.hi; });
+      ctx.globalAlpha=1;
+    } else {
+      ctx.beginPath(); pts.forEach(function(b,j){ var px=X((b.s+b.e)/2),py=Y(b.mean); if(j===0)ctx.moveTo(px,py); else ctx.lineTo(px,py); if(b.mean>rec)rec=b.mean; }); ctx.stroke();
+      if(state.gap>=8){ pts.forEach(function(b){ ctx.beginPath(); ctx.arc(X((b.s+b.e)/2),Y(b.mean),2.4,0,Math.PI*2); ctx.fill(); }); }
+    }
+    report(rec-BASE);
+  }
+
+  function report(exc){
+    var gns=state.gap*DT;
+    document.getElementById('gap-out').textContent=(gns%1?gns.toFixed(1):gns)+' ns';
+    var sec=gns*1e-9*62.5e6;
+    document.getElementById('equiv').textContent=(sec>=1?sec.toFixed(2)+' s':(sec*1e3).toFixed(0)+' ms')+' on 62.5 M pts';
+    var e=Math.round(exc);
+    document.getElementById('rec').textContent=(e>=0?'+':'')+e+' mV';
+    var pill=document.getElementById('verdict'), why=[];
+    var cls, label;
+    if(exc>=0.8*SPK){ cls='good'; label='Caught'; }
+    else if(exc>=20){ cls='warn'; label='Shrunk'; }
+    else { cls='bad'; label='Missed'; }
+    pill.className='pill '+cls; pill.textContent=label;
+    if(state.gap===1){ why.push('Every point is saved, so all modes agree. That only works for captures of a few milliseconds.'); }
+    else if(state.mode==='sample'){
+      if(cls==='bad') why.push('No saved point landed on the spike. Press New capture: sometimes one does. That’s luck, not measurement.');
+      else why.push('A saved point happened to land on the spike this time. Press New capture or move the slider and it can vanish.');
+    } else if(state.mode==='peak'){
+      why.push('Peak Detect kept the highest value in every gap, so the spike survives at any gap.');
+    } else {
+      why.push('High Res averages each gap, so a short spike gets diluted by the flat rail around it. Wider gaps make it worse.');
+    }
+    if(state.bw==='20' && state.gap>1 && !(state.mode==='sample'&&cls==='bad')) why.push('The 20 MHz limit also rounded the spike off before it was recorded. No later step can restore its height.');
+    if(state.bw==='20' && state.gap===1) why.push('Even saving every point, the 20 MHz limit rounded the spike down before the scope saw it.');
+    document.getElementById('why').textContent=why.join(' ');
+  }
+
+  var gapEl=document.getElementById('gap');
+  gapEl.addEventListener('input',function(){ state.gap=parseInt(gapEl.value,10); draw(); });
+  function seg(id,key){
+    var g=document.getElementById(id);
+    g.addEventListener('click',function(ev){
+      var b=ev.target.closest('button'); if(!b) return;
+      g.querySelectorAll('button').forEach(function(x){ x.setAttribute('aria-pressed',x===b?'true':'false'); });
+      state[key]=b.getAttribute('data-v'); draw();
+    });
+  }
+  seg('mode','mode'); seg('bw','bw');
+  document.getElementById('again').addEventListener('click',function(){ state.phaseFrac=Math.random(); draw(); });
+  var rt; window.addEventListener('resize',function(){ clearTimeout(rt); rt=setTimeout(draw,80); });
+  draw();
+
+  /* ---------- Copy brief ---------- */
+  var copyBtn=document.getElementById('copy');
+  copyBtn.addEventListener('click',function(){
+    var text=document.getElementById('brief').textContent;
+    function selectIt(){ var r=document.createRange(); r.selectNodeContents(document.getElementById('brief')); var s=window.getSelection(); s.removeAllRanges(); s.addRange(r); copyBtn.textContent='Selected: press Ctrl+C'; }
+    try{
+      navigator.clipboard.writeText(text).then(function(){ copyBtn.textContent='Copied'; setTimeout(function(){ copyBtn.textContent='Copy brief'; },1800); }, selectIt);
+    }catch(e){ selectIt(); }
+  });
+})();
+</script>
+
+</body></html>
